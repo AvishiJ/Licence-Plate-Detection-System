@@ -1,43 +1,45 @@
 # Ultralytics YOLO 🚀, GPL-3.0 license
 
-import hydra
-import torch
-import easyocr
-import cv2
-from ultralytics.yolo.engine.predictor import BasePredictor
-from ultralytics.yolo.utils import DEFAULT_CONFIG, ROOT, ops
-from ultralytics.yolo.utils.checks import check_imgsz
-from ultralytics.yolo.utils.plotting import Annotator, colors, save_one_box
+import hydra                                           #a framework for managing complex configurations
+import torch                                           #PyTorch, a deep learning library.
+import easyocr                                         # optical character recognition (OCR) library.
+import cv2                                             #a computer vision library
+from ultralytics.yolo.engine.predictor import BasePredictor          #Imports the BasePredictor class from the Ultralytics YOLO library.
+from ultralytics.yolo.utils import DEFAULT_CONFIG, ROOT, ops         # Imports various utilities from the Ultralytics YOLO library.
+from ultralytics.yolo.utils.checks import check_imgsz                # Imports the function check_imgsz to validate image sizes.
+from ultralytics.yolo.utils.plotting import Annotator, colors, save_one_box       # Imports utilities for plotting and saving bounding boxes.
 
-def getOCR(im, coors):
+def getOCR(im, coors):                              # Defines a function to perform OCR on a cropped image region.
     x,y,w, h = int(coors[0]), int(coors[1]), int(coors[2]),int(coors[3])
-    im = im[y:h,x:w]
-    conf = 0.2
+    im = im[y:h,x:w]                                #Crops the image to the specified region.
+    conf = 0.2                                      # Sets a confidence threshold for OCR below which no result is found
 
-    gray = cv2.cvtColor(im , cv2.COLOR_RGB2GRAY)
-    results = reader.readtext(gray)
+    gray = cv2.cvtColor(im , cv2.COLOR_RGB2GRAY)    #Converts the image to grayscale.
+    results = reader.readtext(gray)                 # Uses EasyOCR to read text from the grayscale image
     ocr = ""
 
-    for result in results:
-        if len(results) == 1:
-            ocr = result[1]
+    for result in results:      
+        if len(results) == 1:            # If there's only one result, set ocr to the detected text.
+            ocr = result[1]              #If there are multiple results, check conditions before setting ocr.
         if len(results) >1 and len(results[1])>6 and results[2]> conf:
             ocr = result[1]
     
-    return str(ocr)
+    return str(ocr)    #Returns the detected text as a string.
 
 class DetectionPredictor(BasePredictor):
 
-    def get_annotator(self, img):
+    def get_annotator(self, img):       #Defines a method to get an annotator.
         return Annotator(img, line_width=self.args.line_thickness, example=str(self.model.names))
 
-    def preprocess(self, img):
-        img = torch.from_numpy(img).to(self.model.device)
+    def preprocess(self, img):    
+        img = torch.from_numpy(img).to(self.model.device)   #Converts the image to a PyTorch tensor and moves it to the appropriate device (CPU/GPU).
+       
+        # Converts the image to half-precision (fp16) if the model supports it, otherwise to float (fp32)
         img = img.half() if self.model.fp16 else img.float()  # uint8 to fp16/32
-        img /= 255  # 0 - 255 to 0.0 - 1.0
-        return img
+        img /= 255                      # 0 - 255 to 0.0 - 1.0
+        return img                      #Returns the preprocessed image
 
-    def postprocess(self, preds, img, orig_img):
+    def postprocess(self, preds, img, orig_img):          
         preds = ops.non_max_suppression(preds,
                                         self.args.conf,
                                         self.args.iou,
